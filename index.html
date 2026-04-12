@@ -1,17 +1,29 @@
-<!DOCTYPE html><html><head><title>Selene Vision</title></head>
+<!DOCTYPE html>
+    <html>
+    <head><title>Selene • Ethereal Assembly</title></head>
     <body style='background:#000;color:gold;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:serif;'>
-    <h2>Divine Vision Reassembling...</h2><div id='p'>0%</div>
-    <script>
-    const parts = ['vision_part_0.txt', 'vision_part_1.txt', 'vision_part_2.txt', 'vision_part_3.txt', 'vision_part_4.txt', 'vision_part_5.txt', 'vision_part_6.txt', 'vision_part_7.txt', 'vision_part_8.txt', 'vision_part_9.txt', 'vision_part_10.txt'];
-    async function load() {
-      let s = '';
-      for(let i=0; i<parts.length; i++) {
-        document.getElementById('p').innerText = Math.round((i/parts.length)*100) + '%';
-        const res = await fetch(parts[i]);
-        const data = await res.json();
-        s += data.content.replace(/\n/g, '');
-      }
-      document.open(); document.write(atob(s)); document.close();
-    }
-    load();
-    </script></body></html>
+        <div id='status'>Gathering Divine Fragments...</div>
+        <div id='progress' style='margin-top:10px;color:#555;'>0%</div>
+        <script>
+            const files = ['data_chunk_0.txt', 'data_chunk_1.txt', 'data_chunk_2.txt', 'data_chunk_3.txt', 'data_chunk_4.txt', 'data_chunk_5.txt', 'data_chunk_6.txt'];
+            let content = '';
+            async function assemble() {
+                try {
+                    for(let i=0; i < files.length; i++) {
+                        document.getElementById('progress').innerText = Math.round((i/files.length)*100) + '%';
+                        const resp = await fetch(files[i]);
+                        const data = await resp.json();
+                        content += data.content.replace(/\n/g, '');
+                    }
+                    document.open();
+                    document.write(atob(content));
+                    document.close();
+                } catch(e) {
+                    document.getElementById('status').innerText = 'Assembly Interrupted.';
+                    console.error(e);
+                }
+            }
+            assemble();
+        </script>
+    </body>
+    </html>
