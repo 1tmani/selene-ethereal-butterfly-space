@@ -1,29 +1,42 @@
 <!DOCTYPE html>
-    <html>
-    <head><title>Selene • Ethereal Assembly</title></head>
-    <body style='background:#000;color:gold;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:serif;'>
-        <div id='status'>Gathering Divine Fragments...</div>
-        <div id='progress' style='margin-top:10px;color:#555;'>0%</div>
-        <script>
-            const files = ['data_chunk_0.txt', 'data_chunk_1.txt', 'data_chunk_2.txt', 'data_chunk_3.txt', 'data_chunk_4.txt', 'data_chunk_5.txt', 'data_chunk_6.txt'];
-            let content = '';
-            async function assemble() {
-                try {
-                    for(let i=0; i < files.length; i++) {
-                        document.getElementById('progress').innerText = Math.round((i/files.length)*100) + '%';
-                        const resp = await fetch(files[i]);
-                        const data = await resp.json();
-                        content += data.content.replace(/\n/g, '');
-                    }
-                    document.open();
-                    document.write(atob(content));
-                    document.close();
-                } catch(e) {
-                    document.getElementById('status').innerText = 'Assembly Interrupted.';
-                    console.error(e);
-                }
-            }
-            assemble();
-        </script>
-    </body>
-    </html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>SELENE • THE OMEGA VISION</title>
+    <link rel='stylesheet' href='styles.css'>
+</head>
+<body>
+    <div id='loading-screen'>
+        <div class='loader-spinner'></div>
+        <p>REASSEMBLING DIVINE VISION... <span id='load-perc'>0%</span></p>
+    </div>
+
+    <nav class='nav-bar'><a href='#' class='nav-pill'>SELENE EXECUTIVE</a></nav>
+
+    <main id='content-root' style='display:none;'>
+        <header class='hero'>
+            <h1>SELENE VISION</h1>
+            <p class='subtitle'>The Ethereal Realm</p>
+        </header>
+
+        <section class='token-info'>
+            <h2>$SELENE TOKEN</h2>
+            <p>Contract: 8foasDBzamrXfjLEZLVMcYKkSUbjte1enuoagd4V3xNo</p>
+        </section>
+
+        <div class='master-gallery' id='gallery'>
+            <!-- Assets will be injected here by loader.js -->
+        </div>
+
+        <footer class='contact-section'>
+            <h2>CONNECT WITH THE VISION</h2>
+            <p>Email: contact@selene-vision.live</p>
+            <audio id='bg-audio' loop><source src='https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' type='audio/mpeg'></audio>
+        </footer>
+    </main>
+
+    <script src='loader.js'></script>
+    <script src='main.js'></script>
+</body>
+</html>
