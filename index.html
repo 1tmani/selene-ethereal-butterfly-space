@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html><head><title>Selene Loading...</title></head>
+<body style='background:#000;color:gold;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:serif;'>
+<div id='status'>Reassembling Divine Vision...</div><div id='prog'>0%</div>
+<script>
+const parts = ['part_0.txt', 'part_1.txt', 'part_2.txt', 'part_3.txt', 'part_4.txt', 'part_5.txt', 'part_6.txt'];
+async function start() {
+  let blobStr = '';
+  for(let i=0; i<parts.length; i++) {
+    document.getElementById('prog').innerText = Math.round((i/parts.length)*100) + '%';
+    const r = await fetch(parts[i]);
+    blobStr += await r.text();
+  }
+  document.open(); document.write(atob(blobStr)); document.close();
+}
+start();
+</script></body></html>
