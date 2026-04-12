@@ -230,12 +230,12 @@ setInterval(function(){
 },5500+Math.random()*6000);
 </script>
 <!-- DARK SELENE PORTAL -->
-<div id="selene-portal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:black;z-index:9999;display:none;opacity:0;transition:opacity 0.8s ease;">
+<div id="selene-portal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:black;z-index:9999;display:none;opacity:0;transition:opacity 0.4s ease;">
   <iframe src="https://vercelfreshfinal.vercel.app" style="width:100%; height:100%; border:none;"></iframe>
   <button onclick="closePortal()" style="position:absolute;top:20px;right:20px;z-index:10000;padding:10px 15px;background:rgba(0,0,0,0.7);color:white;border:1px solid white;cursor:pointer;">✕</button>
 </div>
 <script>
-function openPortal() { const p = document.getElementById("selene-portal"); p.style.display = "block"; setTimeout(() => p.style.opacity = "1", 50); }
+function openPortal() { const p = document.getElementById("selene-portal"); p.style.display = "block"; setTimeout(() => p.style.opacity = "1", 10); }
 function closePortal() { const p = document.getElementById("selene-portal"); p.style.opacity = "0"; setTimeout(() => p.style.display = "none", 500); }
 </script>
 </body></html>
