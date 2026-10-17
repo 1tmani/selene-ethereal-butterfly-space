@@ -54,4 +54,88 @@ function choosePlan(name,price){selectedPlan=name;showToast(name+' selected ('+p
 document.getElementById('memberForm').addEventListener('submit',e=>{e.preventDefault();const mode=e.currentTarget.dataset.mode;const fd=new FormData(e.currentTarget);if(mode==='login'){showToast('Login is a preview only. Authentication has not been connected.');closeModal();return}const data=Object.fromEntries(fd.entries());data.plan=selectedPlan;localStorage.setItem('seleneDemoProfile',JSON.stringify(data));showToast('Demo profile saved on this device. No account was created on a server.');closeModal()});
 document.getElementById('year').textContent=new Date().getFullYear();renderProfiles();
 </script>
-</body></html>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0"></script>
+<script>
+/* Selene Matrimony live backend integration. Public publishable key only; no service-role key in browser. */
+const SELENE_SUPABASE_URL = "https://twvizbytajcehvfeephj.supabase.co";
+const SELENE_SUPABASE_KEY = "sb_publishable_C9a6_KaYJqTCgvnQ13ys2w_WqDCsMr4";
+const seleneClient = window.supabase?.createClient(SELENE_SUPABASE_URL, SELENE_SUPABASE_KEY);
+let seleneUser = null;
+let realProfiles = false;
+const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function setAuthNotice(message){showToast(message)}
+function renderAccountState(){
+ const nav=document.querySelector('.navlinks');
+ if(!nav) return;
+ let account=document.getElementById('seleneAccountState');
+ if(!account){account=document.createElement('span');account.id='seleneAccountState';account.style.cssText='font-size:12px;color:var(--rose);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';nav.prepend(account)}
+ account.textContent=seleneUser ? ('Signed in: '+(seleneUser.email||'member')) : 'Not signed in';
+ let login=[...nav.querySelectorAll('button')].find(b=>/log in/i.test(b.textContent));
+ if(login){login.textContent=seleneUser?'Log out':'Log in';login.onclick=()=>seleneUser?seleneLogout():openModal('login')}
+}
+async function seleneLogout(){if(!seleneClient)return;const {error}=await seleneClient.auth.signOut();if(error)return showToast(error.message);seleneUser=null;realProfiles=false;renderAccountState();renderProfiles();showToast('You are signed out.')}
+async function renderProfiles(){
+ const q=(document.getElementById('q')?.value||'').toLowerCase(),age=document.getElementById('age')?.value||'',city=document.getElementById('city')?.value||'',goal=document.getElementById('goal')?.value||'';
+ let data=sampleProfiles;
+ if(seleneClient && seleneUser){
+  let query=seleneClient.from('profiles').select('user_id,display_name,age,city,profession,bio,marriage_timeline,interests,is_verified').eq('is_visible',true).neq('user_id',seleneUser.id).order('created_at',{ascending:false}).limit(60);
+  if(city)query=query.eq('city',city);
+  if(goal)query=query.eq('marriage_timeline',goal);
+  if(age){const [lo,hi]=age.split('-').map(Number);query=query.gte('age',lo).lte('age',hi)}
+  if(q)query=query.or('display_name.ilike.%'+q.replace(/[%_,]/g,' ')+'%,profession.ilike.%'+q.replace(/[%_,]/g,' ')+'%,city.ilike.%'+q.replace(/[%_,]/g,' ')+'%');
+  const {data:rows,error}=await query;
+  if(!error){data=(rows||[]).map(p=>({id:p.user_id,name:p.display_name,age:p.age,city:p.city,job:p.profession||'Member',goal:p.marriage_timeline,emoji:'♡',tags:p.interests||[],about:p.bio||'A Selene member looking for a meaningful connection.',verified:p.is_verified}));realProfiles=true}
+  else {realProfiles=false;showToast('Could not load member profiles. Check that the database migration has been applied.')}
+ } else realProfiles=false;
+ const root=document.getElementById('profiles');
+ const filtered=data.filter(p=>(!q||(p.name+' '+(p.job||'')+' '+p.city+' '+(p.tags||[]).join(' ')).toLowerCase().includes(q))&&(!city||p.city===city)&&(!goal||p.goal===goal)&&(!age||(p.age>=+age.split('-')[0]&&p.age<=+age.split('-')[1])));
+ root.innerHTML=filtered.length?filtered.map(p=>'<article class="profile"><div class="avatar">'+escapeHtml(p.emoji||'♡')+'<small>'+(p.verified?'✓ Verified member':(realProfiles?'Member profile':'Example profile'))+'</small></div><div class="profilebody"><h3>'+escapeHtml(p.name)+', '+escapeHtml(p.age)+'</h3><div class="meta">'+escapeHtml(p.job||'')+' · '+escapeHtml(p.city)+'</div><div class="tags">'+(p.tags||[]).map(t=>'<span class="tag">'+escapeHtml(t)+'</span>').join('')+'</div><p style="font-size:13px;color:var(--muted)">'+escapeHtml(p.about||'')+'</p><div class="profileactions"><button class="btn" onclick="interest(\''+escapeHtml(p.id)+'\')">♡ Express interest</button><button class="btn secondary" onclick="showToast(\'Protect your privacy. Share contact details only when comfortable.\')">View</button></div></div></article>').join(''):'<div class="empty">'+(realProfiles?'No member profiles match those filters yet.':'No example profiles match those filters. Create an account to join the member community.')+'</div>';
+ const note=document.querySelector('#matches .notice');
+ if(note)note.textContent=realProfiles?'Live member profiles. Never share personal contact details until you feel safe.':'Preview profiles are fictional examples only. Sign in to discover real member profiles after the backend is activated.';
+}
+async function interest(id){
+ if(!seleneClient||!seleneUser){openModal('login');return showToast('Please log in to express interest.')}
+ if(!realProfiles){return showToast('Example profiles are fictional. No interest was sent.')}
+ const {error}=await seleneClient.from('interests').insert({sender_id:seleneUser.id,recipient_id:id});
+ if(error){showToast(error.code==='23505'?'You have already expressed interest in this member.':error.message);return}
+ showToast('Interest sent securely to this member.');
+}
+function openModal(mode){
+ const back=document.getElementById('modalback'),title=document.getElementById('modalTitle'),grid=document.getElementById('formgrid'),submit=document.getElementById('formSubmit'),note=document.getElementById('modalNote'),form=document.getElementById('memberForm');
+ form.dataset.mode=mode;back.classList.add('open');
+ if(mode==='login'){
+  title.textContent='Welcome back';
+  grid.innerHTML='<label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Password<input class="field" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Your password"></label>';
+  submit.textContent='Log in';note.textContent='Secure email/password sign-in. Email confirmation may be required.';
+ }else{
+  title.textContent='Create your profile';
+  grid.innerHTML='<label>First name<input class="field" name="name" required maxlength="50" autocomplete="given-name" placeholder="Your first name"></label><label>Age<input class="field" name="age" type="number" required min="18" max="100" placeholder="18+"></label><label>Gender<select class="field" name="gender" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Prefer not to say</option></select></label><label>Looking for<select class="field" name="looking" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Open to discussion</option></select></label><label>City<input class="field" name="city" required maxlength="80" autocomplete="address-level2" placeholder="Your city"></label><label>Profession<input class="field" name="profession" maxlength="100" placeholder="Optional"></label><label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Create password<input class="field" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters"></label><label class="wide">Marriage timeline<select class="field" name="timeline" required><option value="">Choose</option><option>Within a year</option><option>1–2 years</option><option>Open to discussion</option></select></label><label class="wide">About you<textarea class="field" name="about" rows="3" maxlength="700" placeholder="Values, interests and what matters to you"></textarea></label>';
+  submit.textContent='Create account';note.textContent='Your password is handled by Supabase Auth. Only enter accurate information. You must be 18 or older.';
+ }
+}
+document.getElementById('memberForm').replaceWith(document.getElementById('memberForm').cloneNode(true));
+document.getElementById('memberForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(!seleneClient)return showToast('Authentication service is unavailable.');
+ const form=e.currentTarget,mode=form.dataset.mode,fd=new FormData(form),v=Object.fromEntries(fd.entries());
+ const submit=document.getElementById('formSubmit');submit.disabled=true;submit.textContent='Please wait…';
+ try{
+  if(mode==='login'){
+   const {data,error}=await seleneClient.auth.signInWithPassword({email:v.email,password:v.password});
+   if(error)throw error;
+   seleneUser=data.user;closeModal();renderAccountState();await renderProfiles();showToast('Welcome back.');
+  }else{
+   const {data,error}=await seleneClient.auth.signUp({email:v.email,password:v.password,options:{emailRedirectTo:location.origin, data:{display_name:v.name,age:Number(v.age),gender:v.gender,looking_for:v.looking,city:v.city,profession:v.profession||'',bio:v.about||'',marriage_timeline:v.timeline}}});
+   if(error)throw error;
+   if(data.session){seleneUser=data.user;renderAccountState();await renderProfiles();showToast('Account created. Complete your profile after signing in.')}
+   else showToast('Check your email to confirm your account, then log in.');
+   closeModal();
+  }
+ }catch(err){showToast(err.message||'Could not complete the request.')}finally{submit.disabled=false;submit.textContent=mode==='login'?'Log in':'Create account'}
+});
+if(seleneClient){
+ seleneClient.auth.getSession().then(({data})=>{seleneUser=data.session?.user||null;renderAccountState();renderProfiles()});
+ seleneClient.auth.onAuthStateChange((_event,session)=>{seleneUser=session?.user||null;renderAccountState();if(document.getElementById('profiles'))renderProfiles()});
+}else showToast('Authentication service failed to load.');
+renderAccountState();
+</script></body></html>
