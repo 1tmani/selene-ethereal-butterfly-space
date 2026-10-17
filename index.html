@@ -83,6 +83,7 @@ function renderAccountState(){
   account.title='Email verification may still be required. Check your inbox.';
  }
 }
+function choosePlan(name,price){selectedPlan=name;pendingPlan=name;if(!seleneUser){openModal('login');showToast('Log in first.');return}if(!seleneUser.phone_confirmed_at){openModal('phone');showToast('Verify your mobile number before purchasing a membership.');return}openModal('payment')}
 async function seleneLogout(){if(!seleneClient)return;const {error}=await seleneClient.auth.signOut();if(error)return showToast(error.message);seleneUser=null;realProfiles=false;renderAccountState();renderProfiles();showToast('You are signed out.')}
 async function renderProfiles(){
  const q=(document.getElementById('q')?.value||'').toLowerCase(),age=document.getElementById('age')?.value||'',city=document.getElementById('city')?.value||'',goal=document.getElementById('goal')?.value||'';
@@ -105,6 +106,7 @@ async function renderProfiles(){
 }
 async function interest(id){
  if(!seleneClient||!seleneUser){openModal('login');return showToast('Please log in to express interest.')}
+ if(!seleneUser.phone_confirmed_at){openModal('phone');return showToast('Verify your mobile number before expressing interest.')}
  if(!realProfiles){return showToast('Example profiles are fictional. No interest was sent.')}
  const {error}=await seleneClient.from('interests').insert({sender_id:seleneUser.id,recipient_id:id});
  if(error){showToast(error.code==='23505'?'You have already expressed interest in this member.':error.message);return}
@@ -115,7 +117,7 @@ function openModal(mode){
  form.dataset.mode=mode;back.classList.add('open');
  if(mode==='phone'){
   title.textContent='Verify your mobile number';
-  grid.innerHTML='<label class="wide">Mobile number with country code<input class="field" name="phone" type="tel" required autocomplete="tel" inputmode="tel" pattern="\\+[1-9][0-9]{7,14}" value="'+escapeHtml(seleneUser?.user_metadata?.phone_number||'')+'" placeholder="+91XXXXXXXXXX"></label>';
+  grid.innerHTML='<label class="wide">Mobile number with country code<input class="field" name="phone" type="tel" required autocomplete="tel" inputmode="tel" pattern="\+[1-9][0-9]{7,14}" value="'+escapeHtml(seleneUser?.user_metadata?.phone_number||'')+'" placeholder="+91XXXXXXXXXX"></label>';
   submit.textContent='Send SMS code';note.textContent='We will send a one-time code by SMS. Use international format, for example +91 followed by your mobile number. SMS delivery requires an enabled Supabase phone provider and SMS gateway.';
  }else if(mode==='phone_otp'){
   title.textContent='Enter SMS verification code';
@@ -133,7 +135,7 @@ function openModal(mode){
   submit.textContent='Log in';note.textContent='Confirm your email using the link we send. If it does not arrive, check spam or resend it here.';
  }else{
   title.textContent='Create your profile';
-  grid.innerHTML='<label>First name<input class="field" name="name" required maxlength="50" autocomplete="given-name" placeholder="Your first name"></label><label>Age<input class="field" name="age" type="number" required min="18" max="100" placeholder="18+"></label><label>Gender<select class="field" name="gender" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Prefer not to say</option></select></label><label>Looking for<select class="field" name="looking" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Open to discussion</option></select></label><label>City<input class="field" name="city" required maxlength="80" autocomplete="address-level2" placeholder="Your city"></label><label>Profession<input class="field" name="profession" maxlength="100" placeholder="Optional"></label><label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Mobile number<input class="field" name="phone" type="tel" autocomplete="tel" inputmode="tel" required pattern="\\+[1-9][0-9]{7,14}" placeholder="+91XXXXXXXXXX"></label><label class="wide">Create password<input class="field" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters"></label><label class="wide">Marriage timeline<select class="field" name="timeline" required><option value="">Choose</option><option>Within a year</option><option>1–2 years</option><option>Open to discussion</option></select></label><label class="wide">About you<textarea class="field" name="about" rows="3" maxlength="700" placeholder="Values, interests and what matters to you"></textarea></label>';
+  grid.innerHTML='<label>First name<input class="field" name="name" required maxlength="50" autocomplete="given-name" placeholder="Your first name"></label><label>Age<input class="field" name="age" type="number" required min="18" max="100" placeholder="18+"></label><label>Gender<select class="field" name="gender" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Prefer not to say</option></select></label><label>Looking for<select class="field" name="looking" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Open to discussion</option></select></label><label>City<input class="field" name="city" required maxlength="80" autocomplete="address-level2" placeholder="Your city"></label><label>Profession<input class="field" name="profession" maxlength="100" placeholder="Optional"></label><label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Mobile number<input class="field" name="phone" type="tel" autocomplete="tel" inputmode="tel" required pattern="\+[1-9][0-9]{7,14}" placeholder="+91XXXXXXXXXX"></label><label class="wide">Create password<input class="field" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters"></label><label class="wide">Marriage timeline<select class="field" name="timeline" required><option value="">Choose</option><option>Within a year</option><option>1–2 years</option><option>Open to discussion</option></select></label><label class="wide">About you<textarea class="field" name="about" rows="3" maxlength="700" placeholder="Values, interests and what matters to you"></textarea></label>';
   submit.textContent='Create account';note.textContent='Verify your email from the confirmation link, then log in and verify your mobile by SMS. Use international phone format such as +91XXXXXXXXXX. You must be 18 or older.';
  }
 }
@@ -152,8 +154,8 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
  const submit=document.getElementById('formSubmit');submit.disabled=true;submit.textContent='Please wait…';
  try{
   if(mode==='phone'){
-   const phone=v.phone.replace(/[\\s().-]/g,'');
-   if(!/^\\+[1-9][0-9]{7,14}$/.test(phone))throw new Error('Enter the number in international format, for example +91XXXXXXXXXX.');
+   const phone=v.phone.replace(/[\s().-]/g,'');
+   if(!/^\+[1-9][0-9]{7,14}$/.test(phone))throw new Error('Enter the number in international format, for example +91XXXXXXXXXX.');
    const {data,error}=await seleneClient.auth.updateUser({phone});
    if(error)throw error;
    pendingPhone=phone;openModal('phone_otp');showToast('SMS verification code requested.');
@@ -163,6 +165,7 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
    if(error)throw error;
    seleneUser=data.user;pendingPhone='';closeModal();renderAccountState();showToast('Mobile number verified successfully.');if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}
   }else if(mode==='payment'){
+   if(!seleneUser?.phone_confirmed_at){openModal('phone');throw new Error('Verify your mobile number before paying for a membership.')}
    const plans={Silver:499,Gold:999,Platinum:1999};
    const expected=plans[selectedPlan];
    if(!expected||Number(v.amount)!==expected)throw new Error('Membership price mismatch. Please reopen the selected plan.');
@@ -172,11 +175,11 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
   }else if(mode==='login'){
    const {data,error}=await seleneClient.auth.signInWithPassword({email:v.email,password:v.password});
    if(error)throw error;
-   seleneUser=data.user;closeModal();renderAccountState();await renderProfiles();showToast('Welcome back.');if(pendingPlan){selectedPlan=pendingPlan;if(!seleneUser.phone_confirmed_at){openModal('phone');showToast('Verify your mobile number before payment.')}else openModal('payment')}
+   seleneUser=data.user;closeModal();renderAccountState();await renderProfiles();showToast('Welcome back.');if(!seleneUser.phone_confirmed_at){openModal('phone');showToast('Verify your mobile number to finish setting up your account.');return}if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}
   }else{
    const {data,error}=await seleneClient.auth.signUp({email:v.email,password:v.password,options:{emailRedirectTo:'https://seleneetherealbutterfly.space', data:{display_name:v.name,age:Number(v.age),gender:v.gender,looking_for:v.looking,city:v.city,profession:v.profession||'',bio:v.about||'',marriage_timeline:v.timeline,phone_number:v.phone}}});
    if(error)throw error;
-   if(data.session){seleneUser=data.user;renderAccountState();await renderProfiles();showToast('Account created.');closeModal();if(pendingPlan){selectedPlan=pendingPlan;if(!seleneUser.phone_confirmed_at){openModal('phone');showToast('Verify your mobile number before payment.')}else openModal('payment')}}
+   if(data.session){seleneUser=data.user;renderAccountState();await renderProfiles();showToast('Account created.');closeModal();if(!seleneUser.phone_confirmed_at){openModal('phone');showToast('Verify your mobile number to finish setting up your account.')}else if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}}
    else {showToast('Check your email to confirm your account, then log in.');closeModal()}
   }
  }catch(err){
