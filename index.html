@@ -141,9 +141,8 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
   }else{
    const {data,error}=await seleneClient.auth.signUp({email:v.email,password:v.password,options:{emailRedirectTo:location.origin, data:{display_name:v.name,age:Number(v.age),gender:v.gender,looking_for:v.looking,city:v.city,profession:v.profession||'',bio:v.about||'',marriage_timeline:v.timeline}}});
    if(error)throw error;
-   if(data.session){seleneUser=data.user;renderAccountState();await renderProfiles();showToast('Account created. Complete your profile after signing in.')}
-   else showToast('Check your email to confirm your account, then log in.');
-   closeModal();
+   if(data.session){seleneUser=data.user;renderAccountState();await renderProfiles();showToast('Account created.');closeModal();if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}}
+   else {showToast('Check your email to confirm your account, then log in.');closeModal()}
   }
  }catch(err){showToast(err.message||'Could not complete the request.')}finally{submit.disabled=false;submit.textContent=mode==='login'?'Log in':'Create account'}
 });
