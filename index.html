@@ -50,7 +50,8 @@ function showToast(s){const t=document.getElementById('toast');t.textContent=s;t
 function interest(id){let a=JSON.parse(localStorage.getItem('seleneDemoInterests')||'[]');if(!a.includes(id)){a.push(id);localStorage.setItem('seleneDemoInterests',JSON.stringify(a))}showToast('Interest saved in this browser demo. Real members are not notified yet.')}
 function openModal(mode){const back=document.getElementById('modalback'),title=document.getElementById('modalTitle'),grid=document.getElementById('formgrid'),submit=document.getElementById('formSubmit'),note=document.getElementById('modalNote');document.getElementById('memberForm').dataset.mode=mode;back.classList.add('open');if(mode==='login'){title.textContent='Welcome back';grid.innerHTML='<label class="wide">Email address<input class="field" name="email" type="email" required placeholder="you@example.com"></label><label class="wide">Password<input class="field" name="password" type="password" required minlength="8" placeholder="At least 8 characters"></label>';submit.textContent='Log in';note.textContent='Preview only. No account system is connected yet.'}else{title.textContent='Create your profile';grid.innerHTML='<label>First name<input class="field" name="name" required maxlength="50" placeholder="Your first name"></label><label>Age<input class="field" name="age" type="number" required min="18" max="100" placeholder="18+"></label><label>Looking for<select class="field" name="looking" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Open to discussion</option></select></label><label>City<input class="field" name="city" required maxlength="80" placeholder="Your city"></label><label class="wide">Email address<input class="field" name="email" type="email" required placeholder="you@example.com"></label><label class="wide">Marriage timeline<select class="field" name="timeline" required><option value="">Choose</option><option>Within a year</option><option>1–2 years</option><option>Open to discussion</option></select></label><label class="wide">About you<textarea class="field" name="about" rows="3" maxlength="500" placeholder="Values, interests and what matters to you"></textarea></label>';submit.textContent='Save demo profile';note.textContent='Preview only: details are stored in this browser and are not sent to a server. Do not enter sensitive personal information.'}}
 function closeModal(){document.getElementById('modalback').classList.remove('open')}
-function choosePlan(name,price){selectedPlan=name;showToast(name+' selected ('+price+'). Secure checkout must be connected before real payments.');openModal('join')}
+let pendingPlan = null;
+function choosePlan(name,price){selectedPlan=name;pendingPlan=name;if(!seleneUser){openModal('login');showToast('Log in first, then submit your Google Pay transaction reference for manual review.');return}openModal('payment')}
 document.getElementById('memberForm').addEventListener('submit',e=>{e.preventDefault();const mode=e.currentTarget.dataset.mode;const fd=new FormData(e.currentTarget);if(mode==='login'){showToast('Login is a preview only. Authentication has not been connected.');closeModal();return}const data=Object.fromEntries(fd.entries());data.plan=selectedPlan;localStorage.setItem('seleneDemoProfile',JSON.stringify(data));showToast('Demo profile saved on this device. No account was created on a server.');closeModal()});
 document.getElementById('year').textContent=new Date().getFullYear();renderProfiles();
 </script>
@@ -104,7 +105,13 @@ async function interest(id){
 function openModal(mode){
  const back=document.getElementById('modalback'),title=document.getElementById('modalTitle'),grid=document.getElementById('formgrid'),submit=document.getElementById('formSubmit'),note=document.getElementById('modalNote'),form=document.getElementById('memberForm');
  form.dataset.mode=mode;back.classList.add('open');
- if(mode==='login'){
+ if(mode==='payment'){
+  const planAmounts={Silver:499,Gold:999,Platinum:1999};
+  const amount=planAmounts[selectedPlan]||0;
+  title.textContent='Pay with Google Pay';
+  grid.innerHTML='<div class="wide" style="padding:16px;border:1px solid var(--gold);border-radius:12px;background:#24131d"><div style="color:var(--gold);font-size:12px;letter-spacing:.12em">SELECTED MEMBERSHIP</div><h3 style="margin:5px 0;font:24px Georgia,serif">'+escapeHtml(selectedPlan)+' · ₹'+amount+'</h3><p style="margin:5px 0;color:var(--muted);font-size:13px">Open Google Pay, search the recipient mobile number below, confirm the recipient name carefully, and pay the exact amount.</p><div style="font-size:24px;font-weight:700;letter-spacing:.08em;margin:12px 0">7888554681</div><button type="button" class="btn secondary" onclick="navigator.clipboard.writeText(\'7888554681\').then(()=>showToast(\'Google Pay number copied\')).catch(()=>showToast(\'Number: 7888554681\'))">Copy number</button><p style="font-size:12px;color:var(--rose);margin-bottom:0">Do not pay if Google Pay cannot find the number or the recipient name looks wrong. A phone number is not a verified UPI ID.</p></div><label class="wide">Google Pay transaction reference / UTR<input class="field" name="transaction_ref" required minlength="8" maxlength="80" autocomplete="off" placeholder="Enter the UTR from your payment receipt"></label><input type="hidden" name="plan" value="'+escapeHtml(selectedPlan)+'"><input type="hidden" name="amount" value="'+amount+'">';
+  submit.textContent='Submit payment for review';note.textContent='Submitting this reference does not activate paid benefits. The payment must be manually verified first. Never enter your UPI PIN, OTP, card details or password here.';
+ }else if(mode==='login'){
   title.textContent='Welcome back';
   grid.innerHTML='<label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Password<input class="field" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Your password"></label>';
   submit.textContent='Log in';note.textContent='Secure email/password sign-in. Email confirmation may be required.';
@@ -120,10 +127,17 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
  const form=e.currentTarget,mode=form.dataset.mode,fd=new FormData(form),v=Object.fromEntries(fd.entries());
  const submit=document.getElementById('formSubmit');submit.disabled=true;submit.textContent='Please wait…';
  try{
-  if(mode==='login'){
+  if(mode==='payment'){
+   const plans={Silver:499,Gold:999,Platinum:1999};
+   const expected=plans[selectedPlan];
+   if(!expected||Number(v.amount)!==expected)throw new Error('Membership price mismatch. Please reopen the selected plan.');
+   const {error}=await seleneClient.from('payment_requests').insert({user_id:seleneUser.id,plan:selectedPlan,amount_inr:expected,payment_method:'Google Pay',payee_phone:'7888554681',transaction_ref:v.transaction_ref.trim()});
+   if(error)throw error;
+   pendingPlan=null;closeModal();showToast('Payment reference submitted. Membership stays pending until the payment is verified.');
+  }else if(mode==='login'){
    const {data,error}=await seleneClient.auth.signInWithPassword({email:v.email,password:v.password});
    if(error)throw error;
-   seleneUser=data.user;closeModal();renderAccountState();await renderProfiles();showToast('Welcome back.');
+   seleneUser=data.user;closeModal();renderAccountState();await renderProfiles();showToast('Welcome back.');if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}
   }else{
    const {data,error}=await seleneClient.auth.signUp({email:v.email,password:v.password,options:{emailRedirectTo:location.origin, data:{display_name:v.name,age:Number(v.age),gender:v.gender,looking_for:v.looking,city:v.city,profession:v.profession||'',bio:v.about||'',marriage_timeline:v.timeline}}});
    if(error)throw error;
