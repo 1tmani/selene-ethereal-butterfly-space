@@ -184,7 +184,7 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
   if(mode==='login' && /email not confirmed/i.test(message))showToast('Please confirm your email first. Open the verification link we emailed you, or use Resend email verification.');
   else if((mode==='phone'||mode==='phone_otp') && /phone|sms|otp|provider|twilio|disabled/i.test(message))showToast(message+' Check that Phone Auth and an SMS provider are configured in Supabase.');
   else showToast(message);
- }finally{submit.disabled=false;submit.textContent=mode==='login'?'Log in':mode==='phone'?'Send SMS code':mode==='phone_otp'?'Verify mobile number':mode==='payment'?'Submit payment for review':'Create account'}
+ }finally{submit.disabled=false;const activeMode=form.dataset.mode;submit.textContent=activeMode==='login'?'Log in':activeMode==='phone'?'Send SMS code':activeMode==='phone_otp'?'Verify mobile number':activeMode==='payment'?'Submit payment for review':'Create account'}
 });
 if(seleneClient){
  seleneClient.auth.getSession().then(({data})=>{seleneUser=data.session?.user||null;renderAccountState();renderProfiles()});
