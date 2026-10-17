@@ -72,8 +72,16 @@ function renderAccountState(){
  let account=document.getElementById('seleneAccountState');
  if(!account){account=document.createElement('span');account.id='seleneAccountState';account.style.cssText='font-size:12px;color:var(--rose);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';nav.prepend(account)}
  account.textContent=seleneUser ? ('Signed in: '+(seleneUser.email||'member')) : 'Not signed in';
- let login=[...nav.querySelectorAll('button')].find(b=>/log in/i.test(b.textContent));
+ let login=[...nav.querySelectorAll('button')].find(b=>/log in|log out/i.test(b.textContent));
  if(login){login.textContent=seleneUser?'Log out':'Log in';login.onclick=()=>seleneUser?seleneLogout():openModal('login')}
+ let verify=document.getElementById('seleneVerifyPhone');
+ if(seleneUser && !seleneUser.phone_confirmed_at){
+  if(!verify){verify=document.createElement('button');verify.id='seleneVerifyPhone';verify.className='btn secondary';verify.style.cssText='font-size:12px;padding:7px 10px';verify.textContent='Verify phone';nav.prepend(verify)}
+  verify.onclick=()=>openModal('phone');
+ }else if(verify)verify.remove();
+ if(seleneUser && !seleneUser.email_confirmed_at && seleneUser.email){
+  account.title='Email verification may still be required. Check your inbox.';
+ }
 }
 async function seleneLogout(){if(!seleneClient)return;const {error}=await seleneClient.auth.signOut();if(error)return showToast(error.message);seleneUser=null;realProfiles=false;renderAccountState();renderProfiles();showToast('You are signed out.')}
 async function renderProfiles(){
@@ -105,7 +113,15 @@ async function interest(id){
 function openModal(mode){
  const back=document.getElementById('modalback'),title=document.getElementById('modalTitle'),grid=document.getElementById('formgrid'),submit=document.getElementById('formSubmit'),note=document.getElementById('modalNote'),form=document.getElementById('memberForm');
  form.dataset.mode=mode;back.classList.add('open');
- if(mode==='payment'){
+ if(mode==='phone'){
+  title.textContent='Verify your mobile number';
+  grid.innerHTML='<label class="wide">Mobile number with country code<input class="field" name="phone" type="tel" required autocomplete="tel" inputmode="tel" pattern="\\+[1-9][0-9]{7,14}" placeholder="+91XXXXXXXXXX"></label>';
+  submit.textContent='Send SMS code';note.textContent='We will send a one-time code by SMS. Use international format, for example +91 followed by your mobile number. SMS delivery requires an enabled Supabase phone provider and SMS gateway.';
+ }else if(mode==='phone_otp'){
+  title.textContent='Enter SMS verification code';
+  grid.innerHTML='<label class="wide">Six-digit code<input class="field" name="token" type="text" required inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="123456"></label><input type="hidden" name="phone" value="'+escapeHtml(pendingPhone)+'">';
+  submit.textContent='Verify mobile number';note.textContent='Enter the code sent to '+escapeHtml(pendingPhone)+'. The code expires; never share it with anyone.';
+ }else if(mode==='payment'){
   const planAmounts={Silver:499,Gold:999,Platinum:1999};
   const amount=planAmounts[selectedPlan]||0;
   title.textContent='Pay with Google Pay';
@@ -113,13 +129,21 @@ function openModal(mode){
   submit.textContent='Submit payment for review';note.textContent='Submitting this reference does not activate paid benefits. The payment must be manually verified first. Never enter your UPI PIN, OTP, card details or password here.';
  }else if(mode==='login'){
   title.textContent='Welcome back';
-  grid.innerHTML='<label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Password<input class="field" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Your password"></label>';
-  submit.textContent='Log in';note.textContent='Secure email/password sign-in. Email confirmation may be required.';
+  grid.innerHTML='<label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Password<input class="field" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Your password"></label><button type="button" class="btn secondary wide" onclick="resendEmailConfirmation()">Resend email verification</button>';
+  submit.textContent='Log in';note.textContent='Confirm your email using the link we send. If it does not arrive, check spam or resend it here.';
  }else{
   title.textContent='Create your profile';
-  grid.innerHTML='<label>First name<input class="field" name="name" required maxlength="50" autocomplete="given-name" placeholder="Your first name"></label><label>Age<input class="field" name="age" type="number" required min="18" max="100" placeholder="18+"></label><label>Gender<select class="field" name="gender" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Prefer not to say</option></select></label><label>Looking for<select class="field" name="looking" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Open to discussion</option></select></label><label>City<input class="field" name="city" required maxlength="80" autocomplete="address-level2" placeholder="Your city"></label><label>Profession<input class="field" name="profession" maxlength="100" placeholder="Optional"></label><label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Create password<input class="field" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters"></label><label class="wide">Marriage timeline<select class="field" name="timeline" required><option value="">Choose</option><option>Within a year</option><option>1–2 years</option><option>Open to discussion</option></select></label><label class="wide">About you<textarea class="field" name="about" rows="3" maxlength="700" placeholder="Values, interests and what matters to you"></textarea></label>';
-  submit.textContent='Create account';note.textContent='Your password is handled by Supabase Auth. Only enter accurate information. You must be 18 or older.';
+  grid.innerHTML='<label>First name<input class="field" name="name" required maxlength="50" autocomplete="given-name" placeholder="Your first name"></label><label>Age<input class="field" name="age" type="number" required min="18" max="100" placeholder="18+"></label><label>Gender<select class="field" name="gender" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Prefer not to say</option></select></label><label>Looking for<select class="field" name="looking" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Open to discussion</option></select></label><label>City<input class="field" name="city" required maxlength="80" autocomplete="address-level2" placeholder="Your city"></label><label>Profession<input class="field" name="profession" maxlength="100" placeholder="Optional"></label><label class="wide">Email address<input class="field" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="wide">Mobile number<input class="field" name="phone" type="tel" autocomplete="tel" inputmode="tel" required pattern="\\+[1-9][0-9]{7,14}" placeholder="+91XXXXXXXXXX"></label><label class="wide">Create password<input class="field" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters"></label><label class="wide">Marriage timeline<select class="field" name="timeline" required><option value="">Choose</option><option>Within a year</option><option>1–2 years</option><option>Open to discussion</option></select></label><label class="wide">About you<textarea class="field" name="about" rows="3" maxlength="700" placeholder="Values, interests and what matters to you"></textarea></label>';
+  submit.textContent='Create account';note.textContent='Verify your email from the confirmation link, then log in and verify your mobile by SMS. Use international phone format such as +91XXXXXXXXXX. You must be 18 or older.';
  }
+}
+let pendingPhone='';
+async function resendEmailConfirmation(){
+ const email=document.querySelector('#memberForm input[name="email"]')?.value?.trim();
+ if(!email)return showToast('Enter your email address first.');
+ const {error}=await seleneClient.auth.resend({type:'signup',email,options:{emailRedirectTo:'https://seleneetherealbutterfly.space'}});
+ if(error)return showToast(error.message);
+ showToast('Verification email requested. Check your inbox and spam folder.');
 }
 document.getElementById('memberForm').replaceWith(document.getElementById('memberForm').cloneNode(true));
 document.getElementById('memberForm').addEventListener('submit',async e=>{
@@ -127,7 +151,18 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
  const form=e.currentTarget,mode=form.dataset.mode,fd=new FormData(form),v=Object.fromEntries(fd.entries());
  const submit=document.getElementById('formSubmit');submit.disabled=true;submit.textContent='Please wait…';
  try{
-  if(mode==='payment'){
+  if(mode==='phone'){
+   const phone=v.phone.replace(/[\\s().-]/g,'');
+   if(!/^\\+[1-9][0-9]{7,14}$/.test(phone))throw new Error('Enter the number in international format, for example +91XXXXXXXXXX.');
+   const {data,error}=await seleneClient.auth.updateUser({phone});
+   if(error)throw error;
+   pendingPhone=phone;openModal('phone_otp');showToast('SMS verification code requested.');
+  }else if(mode==='phone_otp'){
+   const phone=v.phone||pendingPhone;
+   const {data,error}=await seleneClient.auth.verifyOtp({phone,token:v.token.trim(),type:'phone_change'});
+   if(error)throw error;
+   seleneUser=data.user;pendingPhone='';closeModal();renderAccountState();showToast('Mobile number verified successfully.');
+  }else if(mode==='payment'){
    const plans={Silver:499,Gold:999,Platinum:1999};
    const expected=plans[selectedPlan];
    if(!expected||Number(v.amount)!==expected)throw new Error('Membership price mismatch. Please reopen the selected plan.');
@@ -139,12 +174,17 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
    if(error)throw error;
    seleneUser=data.user;closeModal();renderAccountState();await renderProfiles();showToast('Welcome back.');if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}
   }else{
-   const {data,error}=await seleneClient.auth.signUp({email:v.email,password:v.password,options:{emailRedirectTo:location.origin, data:{display_name:v.name,age:Number(v.age),gender:v.gender,looking_for:v.looking,city:v.city,profession:v.profession||'',bio:v.about||'',marriage_timeline:v.timeline}}});
+   const {data,error}=await seleneClient.auth.signUp({email:v.email,password:v.password,options:{emailRedirectTo:'https://seleneetherealbutterfly.space', data:{display_name:v.name,age:Number(v.age),gender:v.gender,looking_for:v.looking,city:v.city,profession:v.profession||'',bio:v.about||'',marriage_timeline:v.timeline,phone_number:v.phone}}});
    if(error)throw error;
    if(data.session){seleneUser=data.user;renderAccountState();await renderProfiles();showToast('Account created.');closeModal();if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}}
    else {showToast('Check your email to confirm your account, then log in.');closeModal()}
   }
- }catch(err){showToast(err.message||'Could not complete the request.')}finally{submit.disabled=false;submit.textContent=mode==='login'?'Log in':'Create account'}
+ }catch(err){
+  const message=String(err.message||'Could not complete the request.');
+  if(mode==='login' && /email not confirmed/i.test(message))showToast('Please confirm your email first. Open the verification link we emailed you, or use Resend email verification.');
+  else if((mode==='phone'||mode==='phone_otp') && /phone|sms|otp|provider|twilio|disabled/i.test(message))showToast(message+' Check that Phone Auth and an SMS provider are configured in Supabase.');
+  else showToast(message);
+ }finally{submit.disabled=false;submit.textContent=mode==='login'?'Log in':mode==='phone'?'Send SMS code':mode==='phone_otp'?'Verify mobile number':mode==='payment'?'Submit payment for review':'Create account'}
 });
 if(seleneClient){
  seleneClient.auth.getSession().then(({data})=>{seleneUser=data.session?.user||null;renderAccountState();renderProfiles()});
