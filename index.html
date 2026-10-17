@@ -51,7 +51,7 @@ function interest(id){let a=JSON.parse(localStorage.getItem('seleneDemoInterests
 function openModal(mode){const back=document.getElementById('modalback'),title=document.getElementById('modalTitle'),grid=document.getElementById('formgrid'),submit=document.getElementById('formSubmit'),note=document.getElementById('modalNote');document.getElementById('memberForm').dataset.mode=mode;back.classList.add('open');if(mode==='login'){title.textContent='Welcome back';grid.innerHTML='<label class="wide">Email address<input class="field" name="email" type="email" required placeholder="you@example.com"></label><label class="wide">Password<input class="field" name="password" type="password" required minlength="8" placeholder="At least 8 characters"></label>';submit.textContent='Log in';note.textContent='Preview only. No account system is connected yet.'}else{title.textContent='Create your profile';grid.innerHTML='<label>First name<input class="field" name="name" required maxlength="50" placeholder="Your first name"></label><label>Age<input class="field" name="age" type="number" required min="18" max="100" placeholder="18+"></label><label>Looking for<select class="field" name="looking" required><option value="">Choose</option><option>Woman</option><option>Man</option><option>Open to discussion</option></select></label><label>City<input class="field" name="city" required maxlength="80" placeholder="Your city"></label><label class="wide">Email address<input class="field" name="email" type="email" required placeholder="you@example.com"></label><label class="wide">Marriage timeline<select class="field" name="timeline" required><option value="">Choose</option><option>Within a year</option><option>1–2 years</option><option>Open to discussion</option></select></label><label class="wide">About you<textarea class="field" name="about" rows="3" maxlength="500" placeholder="Values, interests and what matters to you"></textarea></label>';submit.textContent='Save demo profile';note.textContent='Preview only: details are stored in this browser and are not sent to a server. Do not enter sensitive personal information.'}}
 function closeModal(){document.getElementById('modalback').classList.remove('open')}
 let pendingPlan = null;
-function choosePlan(name,price){selectedPlan=name;pendingPlan=name;if(!seleneUser){openModal('login');showToast('Log in first, then submit your Google Pay transaction reference for manual review.');return}openModal('payment')}
+function choosePlan(name,price){selectedPlan=name;pendingPlan=name;if(!seleneUser){openModal('login');showToast('Log in first. Email and mobile verification are required before membership payment.');return}if(!seleneUser.phone_confirmed_at){openModal('phone');showToast('Verify your mobile number before submitting a membership payment.');return}openModal('payment')}
 document.getElementById('memberForm').addEventListener('submit',e=>{e.preventDefault();const mode=e.currentTarget.dataset.mode;const fd=new FormData(e.currentTarget);if(mode==='login'){showToast('Login is a preview only. Authentication has not been connected.');closeModal();return}const data=Object.fromEntries(fd.entries());data.plan=selectedPlan;localStorage.setItem('seleneDemoProfile',JSON.stringify(data));showToast('Demo profile saved on this device. No account was created on a server.');closeModal()});
 document.getElementById('year').textContent=new Date().getFullYear();renderProfiles();
 </script>
@@ -161,7 +161,7 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
    const phone=v.phone||pendingPhone;
    const {data,error}=await seleneClient.auth.verifyOtp({phone,token:v.token.trim(),type:'phone_change'});
    if(error)throw error;
-   seleneUser=data.user;pendingPhone='';closeModal();renderAccountState();showToast('Mobile number verified successfully.');
+   seleneUser=data.user;pendingPhone='';closeModal();renderAccountState();showToast('Mobile number verified successfully.');if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}
   }else if(mode==='payment'){
    const plans={Silver:499,Gold:999,Platinum:1999};
    const expected=plans[selectedPlan];
@@ -172,11 +172,11 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
   }else if(mode==='login'){
    const {data,error}=await seleneClient.auth.signInWithPassword({email:v.email,password:v.password});
    if(error)throw error;
-   seleneUser=data.user;closeModal();renderAccountState();await renderProfiles();showToast('Welcome back.');if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}
+   seleneUser=data.user;closeModal();renderAccountState();await renderProfiles();showToast('Welcome back.');if(pendingPlan){selectedPlan=pendingPlan;if(!seleneUser.phone_confirmed_at){openModal('phone');showToast('Verify your mobile number before payment.')}else openModal('payment')}
   }else{
    const {data,error}=await seleneClient.auth.signUp({email:v.email,password:v.password,options:{emailRedirectTo:'https://seleneetherealbutterfly.space', data:{display_name:v.name,age:Number(v.age),gender:v.gender,looking_for:v.looking,city:v.city,profession:v.profession||'',bio:v.about||'',marriage_timeline:v.timeline,phone_number:v.phone}}});
    if(error)throw error;
-   if(data.session){seleneUser=data.user;renderAccountState();await renderProfiles();showToast('Account created.');closeModal();if(pendingPlan){selectedPlan=pendingPlan;openModal('payment')}}
+   if(data.session){seleneUser=data.user;renderAccountState();await renderProfiles();showToast('Account created.');closeModal();if(pendingPlan){selectedPlan=pendingPlan;if(!seleneUser.phone_confirmed_at){openModal('phone');showToast('Verify your mobile number before payment.')}else openModal('payment')}}
    else {showToast('Check your email to confirm your account, then log in.');closeModal()}
   }
  }catch(err){
