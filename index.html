@@ -196,6 +196,13 @@ document.getElementById('memberForm').addEventListener('submit',async e=>{
   else showToast(message);
  }finally{submit.disabled=false;const activeMode=form.dataset.mode;submit.textContent=activeMode==='login'?'Log in':activeMode==='phone'?'Send SMS code':activeMode==='phone_otp'?'Verify mobile number':activeMode==='payment'?'Submit payment for review':'Create account'}
 });
+let selenePointerStart=null;
+const seleneProfilesRoot=document.getElementById('profiles');
+if(seleneProfilesRoot){
+ seleneProfilesRoot.addEventListener('pointerdown',e=>{if(e.target.closest('button,a,input,select,textarea'))return;const card=e.target.closest('.profile[data-card-id]');if(!card)return;selenePointerStart={x:e.clientX,y:e.clientY,id:card.dataset.cardId};});
+ seleneProfilesRoot.addEventListener('pointerup',e=>{if(!selenePointerStart)return;const dx=e.clientX-selenePointerStart.x,dy=e.clientY-selenePointerStart.y,id=selenePointerStart.id;selenePointerStart=null;if(Math.abs(dx)>90&&Math.abs(dx)>Math.abs(dy)*1.25)swipeProfile(id,dx>0?'like':'pass');});
+ seleneProfilesRoot.addEventListener('pointercancel',()=>{selenePointerStart=null});
+}
 if(seleneClient){
  seleneClient.auth.getSession().then(({data})=>{seleneUser=data.session?.user||null;renderAccountState();renderProfiles()});
  seleneClient.auth.onAuthStateChange((_event,session)=>{seleneUser=session?.user||null;renderAccountState();if(document.getElementById('profiles'))renderProfiles()});
