@@ -115,7 +115,7 @@ function openModal(mode){
  form.dataset.mode=mode;back.classList.add('open');
  if(mode==='phone'){
   title.textContent='Verify your mobile number';
-  grid.innerHTML='<label class="wide">Mobile number with country code<input class="field" name="phone" type="tel" required autocomplete="tel" inputmode="tel" pattern="\\+[1-9][0-9]{7,14}" placeholder="+91XXXXXXXXXX"></label>';
+  grid.innerHTML='<label class="wide">Mobile number with country code<input class="field" name="phone" type="tel" required autocomplete="tel" inputmode="tel" pattern="\\+[1-9][0-9]{7,14}" value="'+escapeHtml(seleneUser?.user_metadata?.phone_number||'')+'" placeholder="+91XXXXXXXXXX"></label>';
   submit.textContent='Send SMS code';note.textContent='We will send a one-time code by SMS. Use international format, for example +91 followed by your mobile number. SMS delivery requires an enabled Supabase phone provider and SMS gateway.';
  }else if(mode==='phone_otp'){
   title.textContent='Enter SMS verification code';
